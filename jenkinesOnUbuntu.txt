@@ -1,3 +1,19 @@
+Before running your Jenkins installation script:
+################################################################
+sudo apt-get update && sudo apt-get upgrade -y
+java -version
+sudo apt-get install openjdk-17-jdk -y
+java -version
+sudo apt-get install wget curl gnupg -y
+############## Clean Up Old Jenkins ####################
+sudo systemctl stop jenkins
+sudo apt-get purge jenkins -y
+sudo rm -rf /var/lib/jenkins /etc/jenkins /var/log/jenkins
+############ verify ##############
+wget --spider https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+
+
+
 sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
   https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
 echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
@@ -11,6 +27,15 @@ sudo apt-get install jenkins
 ##################################################################
 
 ####
+
+## allow  fire wal####
+
+sudo ufw allow 8080
+sudo ufw reload
+
+
+
+
 ######status
  sudo systemctl status jenkins
 
