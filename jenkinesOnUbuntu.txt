@@ -31,6 +31,8 @@ sudo apt-get install jenkins
 ## allow  fire wal####
 
 sudo ufw allow 8080
+sudo ufw enable 
+sudo ufw status
 sudo ufw reload
 
 
