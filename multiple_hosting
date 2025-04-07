@@ -1,0 +1,181 @@
+Step-by-Step Setup (Manual Mode, Clean & Reliable)
+⚙️ 1. Stop & Remove All Docker Containers
+bash
+Copy
+Edit
+docker stop $(docker ps -aq)
+docker rm $(docker ps -aq)
+🧼 2. Free Up Ports 80 and 443
+These must be free for Nginx to bind.
+
+bash
+Copy
+Edit
+sudo lsof -i :80
+sudo lsof -i :443
+If anything is using them (e.g., a container), stop it.
+
+📁 3. Directory Structure
+Let's say:
+
+arduino
+Copy
+Edit
+/home/Project/
+├── safia_make_over_frond
+├── social_wing
+└── nginx-reverse-proxy
+📦 4. Start App Containers (But Don’t Bind 80/443)
+Modify your Docker Compose files to not expose 80 or 443. Only expose internal ports.
+
+Example safia_make_over_frond/docker-compose.yml:
+
+yaml
+Copy
+Edit
+services:
+  safia_container:
+    image: your-safia-image
+    ports:
+      - "3002:3002"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    external: true
+Same for social_wing, using port 3000, for example.
+
+🌐 5. Create a Shared Docker Network
+This allows Nginx container to talk to your app containers.
+
+bash
+Copy
+Edit
+docker network create app-net
+Then make sure both safia_container and socialwing-app use app-net.
+
+🧰 6. Set Up Nginx Reverse Proxy
+In /home/Project/nginx-reverse-proxy, create this default.conf:
+
+nginx
+Copy
+Edit
+server {
+    listen 80;
+    server_name safiyasmakeover.com;
+
+    location / {
+        proxy_pass http://safia_container:3002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+server {
+    listen 80;
+    server_name socialwing.in;
+
+    location / {
+        proxy_pass http://socialwing-app:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+Then use this docker-compose.yml in nginx-reverse-proxy:
+
+yaml
+Copy
+Edit
+services:
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    external: true
+🔐 7. Issue SSL Certs with Certbot (Standalone)
+Stop Nginx container if it's already running:
+
+bash
+Copy
+Edit
+docker compose down
+Then issue certs:
+
+bash
+Copy
+Edit
+sudo certbot certonly --standalone -d safiyasmakeover.com
+sudo certbot certonly --standalone -d socialwing.in
+🔄 8. Update Nginx Config for HTTPS
+Update default.conf like so:
+
+nginx
+Copy
+Edit
+server {
+    listen 80;
+    server_name safiyasmakeover.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name safiyasmakeover.com;
+
+    ssl_certificate /etc/letsencrypt/live/safiyasmakeover.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/safiyasmakeover.com/privkey.pem;
+
+    location / {
+        proxy_pass http://safia_container:3002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+server {
+    listen 80;
+    server_name socialwing.in;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name socialwing.in;
+
+    ssl_certificate /etc/letsencrypt/live/socialwing.in/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/socialwing.in/privkey.pem;
+
+    location / {
+        proxy_pass http://socialwing-app:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+🚀 9. Start Everything
+bash
+Copy
+Edit
+# Start app containers (in their own directories)
+docker compose up -d
+
+# Then start nginx reverse proxy
+cd /home/Project/nginx-reverse-proxy
+docker compose up -d
+🧪 10. Test
+Try in browser or with curl:
+
+bash
+Copy
+Edit
+curl -I https://safiyasmakeover.com
+curl -I https://socialwing.in
